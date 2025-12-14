@@ -4,6 +4,8 @@ import { LoginPage } from './pages/LoginPage';
 import { CalendarPage } from './pages/CalendarPage';
 import { ApprovalPage } from './pages/ApprovalPage';
 import { DashboardPage } from './pages/DashboardPage';
+import { MyBookingsPage } from './pages/MyBookingsPage';
+import { BookingHistoryPage } from './pages/BookingHistoryPage';
 import { RoomManagementPage } from './pages/RoomManagementPage';
 import { User, UserRole } from './types';
 
@@ -23,7 +25,7 @@ export default function App() {
   const handleLogin = (loggedInUser: User) => {
     setUser(loggedInUser);
     localStorage.setItem('eduMeetUser', JSON.stringify(loggedInUser));
-    
+
     // Redirect based on role
     if (loggedInUser.role === UserRole.ADMIN || loggedInUser.role === UserRole.APPROVER) {
       setCurrentPage('approval');
@@ -47,6 +49,8 @@ export default function App() {
     switch (currentPage) {
       case 'calendar':
         return <CalendarPage user={user} />;
+      case 'my-bookings':
+        return <MyBookingsPage user={user} />;
       case 'approval':
         if (user.role === UserRole.USER) return <div className="p-8 text-center text-red-500">คุณไม่มีสิทธิ์เข้าถึงหน้านี้</div>;
         return <ApprovalPage user={user} />;
@@ -56,6 +60,9 @@ export default function App() {
       case 'dashboard':
         if (user.role !== UserRole.ADMIN) return <div className="p-8 text-center text-red-500">คุณไม่มีสิทธิ์เข้าถึงหน้านี้</div>;
         return <DashboardPage />;
+      case 'history':
+        if (user.role === UserRole.USER) return <div className="p-8 text-center text-red-500">คุณไม่มีสิทธิ์เข้าถึงหน้านี้</div>;
+        return <BookingHistoryPage user={user} />;
       default:
         return <CalendarPage user={user} />;
     }
@@ -63,9 +70,9 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans">
-      <Navbar 
-        user={user} 
-        onLogout={handleLogout} 
+      <Navbar
+        user={user}
+        onLogout={handleLogout}
         currentPage={currentPage}
         onNavigate={setCurrentPage}
       />

@@ -1,108 +1,30 @@
 import { supabase } from '../supabaseClient';
 import { Booking, BookingStatus, Room, User, UserRole } from '../types';
 
-// Helper to simulate network delay for realistic UI feedback
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-// MOCK DATA for Demo Mode
-const MOCK_USERS: User[] = [
-  { id: 'mock-admin', username: 'admin', full_name: 'ผู้ดูแลระบบ (Admin)', role: UserRole.ADMIN, status: 'ACTIVE' },
-  { id: 'mock-approver', username: 'approver', full_name: 'ผู้อนุมัติ (Approver)', role: UserRole.APPROVER, status: 'ACTIVE' },
-  { id: 'mock-user', username: 'user', full_name: 'ผู้ใช้งานทั่วไป (User)', role: UserRole.USER, status: 'ACTIVE' },
-];
-
-const MOCK_ROOMS: Room[] = [
-  { 
-    id: 'r1', 
-    room_name: 'ห้องประชุม A', 
-    location: 'อาคาร 1', 
-    capacity: 10, 
-    equipment: 'โปรเจคเตอร์', 
-    status: 'ACTIVE',
-    image_url: 'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=800'
-  },
-  { 
-    id: 'r2', 
-    room_name: 'ห้องบรรยาย B', 
-    location: 'อาคาร 2', 
-    capacity: 50, 
-    equipment: 'เครื่องเสียง', 
-    status: 'ACTIVE',
-    image_url: 'https://images.unsplash.com/photo-1517502884422-41eaead166d4?auto=format&fit=crop&q=80&w=800'
-  },
-  { 
-    id: 'r3', 
-    room_name: 'ห้องประชุมเล็ก C', 
-    location: 'อาคาร 1', 
-    capacity: 6, 
-    equipment: 'ทีวี', 
-    status: 'ACTIVE',
-    image_url: 'https://images.unsplash.com/photo-1577412647305-991150c7d163?auto=format&fit=crop&q=80&w=800'
-  },
-];
-
-const MOCK_BOOKINGS: Booking[] = [
-  {
-    id: 'b1',
-    room_id: 'r1',
-    user_id: 'mock-user',
-    title: 'ประชุมทีมประจำสัปดาห์',
-    purpose: 'อัปเดตงานรายสัปดาห์',
-    start_datetime: new Date(new Date().setHours(10, 0, 0, 0)).toISOString(),
-    end_datetime: new Date(new Date().setHours(11, 0, 0, 0)).toISOString(),
-    status: BookingStatus.APPROVED,
-    created_at: new Date().toISOString(),
-    rooms: MOCK_ROOMS[0],
-    users: MOCK_USERS[2]
-  },
-  {
-    id: 'b2',
-    room_id: 'r2',
-    user_id: 'mock-user',
-    title: 'บรรยายพิเศษฟิสิกส์',
-    purpose: 'วิชาฟิสิกส์ 101',
-    start_datetime: new Date(new Date().setHours(13, 0, 0, 0)).toISOString(),
-    end_datetime: new Date(new Date().setHours(15, 0, 0, 0)).toISOString(),
-    status: BookingStatus.PENDING,
-    created_at: new Date().toISOString(),
-    rooms: MOCK_ROOMS[1],
-    users: MOCK_USERS[2]
-  }
-];
-
 export const api = {
   // POST /api/login
   login: async (username: string, password: string): Promise<User | null> => {
-    // 1. Try Supabase
-    try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('username', username)
-        .eq('status', 'ACTIVE')
-        .single();
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('username', username)
+      .eq('status', 'ACTIVE')
+      .single();
 
-      if (!error && data) {
-        // Simple comparison for demo.
-        if (data.password_hash === password) {
-          return {
-            id: data.id,
-            username: data.username,
-            full_name: data.full_name,
-            role: data.role as UserRole,
-            status: data.status,
-          };
-        }
-      }
-    } catch (e) {
-      console.warn("Supabase login failed, attempting mock fallback...");
+    if (error) {
+      console.error('Login error:', error);
+      return null;
     }
 
-    // 2. Fallback to Mock Data
-    await delay(500); // Simulate network
-    if (username === 'admin' && password === 'admin123') return MOCK_USERS[0];
-    if (username === 'approver' && password === 'approver123') return MOCK_USERS[1];
-    if (username === 'user' && password === 'user123') return MOCK_USERS[2];
+    if (data && data.password_hash === password) {
+      return {
+        id: data.id,
+        username: data.username,
+        full_name: data.full_name,
+        role: data.role as UserRole,
+        status: data.status,
+      };
+    }
 
     return null;
   },
@@ -110,82 +32,92 @@ export const api = {
   rooms: {
     // GET /api/rooms/list
     list: async (): Promise<Room[]> => {
-      try {
-        const { data, error } = await supabase.from('rooms').select('*').order('room_name');
-        if (!error && data && data.length > 0) return data as Room[];
-      } catch (e) {}
+      const { data, error } = await supabase
+        .from('rooms')
+        .select('*')
+        .order('room_name');
 
-      return MOCK_ROOMS; // Fallback
-    },
-    
-    // POST /api/rooms/create
-    create: async (room: Omit<Room, 'id' | 'created_at'>): Promise<void> => {
-      try {
-        const { error } = await supabase.from('rooms').insert(room);
-        if (error) throw error;
-      } catch(e) {
-        console.warn("Using mock create room");
-        MOCK_ROOMS.push({ ...room, id: Math.random().toString(), status: 'ACTIVE' });
+      if (error) {
+        console.error('Error fetching rooms:', error);
+        return [];
       }
+
+      return data as Room[];
+    },
+
+    // POST /api/rooms/create
+    create: async (room: Omit<Room, 'id'>): Promise<{ success: boolean; error?: string }> => {
+      const { error } = await supabase.from('rooms').insert(room);
+
+      if (error) {
+        console.error('Error creating room:', error);
+        return { success: false, error: error.message };
+      }
+
+      return { success: true };
     },
 
     // PUT /api/rooms/update
-    update: async (room: Room): Promise<void> => {
-      try {
-        const { error } = await supabase.from('rooms').update({
-             room_name: room.room_name,
-             location: room.location,
-             capacity: room.capacity,
-             equipment: room.equipment,
-             status: room.status,
-             image_url: room.image_url
-        }).eq('id', room.id);
-        if (error) throw error;
-      } catch (e) {
-        console.warn("Using mock update room");
-        const idx = MOCK_ROOMS.findIndex(r => r.id === room.id);
-        if (idx !== -1) {
-            MOCK_ROOMS[idx] = room;
-        }
+    update: async (room: Room): Promise<{ success: boolean; error?: string }> => {
+      const { error } = await supabase
+        .from('rooms')
+        .update({
+          room_name: room.room_name,
+          location: room.location,
+          capacity: room.capacity,
+          equipment: room.equipment,
+          status: room.status,
+          image_url: room.image_url
+        })
+        .eq('id', room.id);
+
+      if (error) {
+        console.error('Error updating room:', error);
+        return { success: false, error: error.message };
       }
+
+      return { success: true };
     },
 
     // DELETE /api/rooms/delete
-    delete: async (roomId: string): Promise<void> => {
-        try {
-            const { error } = await supabase.from('rooms').delete().eq('id', roomId);
-            if(error) throw error;
-        } catch(e) {
-             console.warn("Using mock delete room");
-             const idx = MOCK_ROOMS.findIndex(r => r.id === roomId);
-             if (idx !== -1) {
-                 MOCK_ROOMS.splice(idx, 1);
-             }
-        }
+    delete: async (roomId: string): Promise<{ success: boolean; error?: string }> => {
+      const { error } = await supabase.from('rooms').delete().eq('id', roomId);
+
+      if (error) {
+        console.error('Error deleting room:', error);
+        return { success: false, error: error.message };
+      }
+
+      return { success: true };
     }
   },
 
   bookings: {
     // GET /api/bookings/list
-    list: async (filters?: { roomId?: string, month?: number, year?: number, status?: string }): Promise<Booking[]> => {
-      try {
-        let query = supabase
-          .from('bookings')
-          .select(`*, rooms (room_name), users (full_name)`)
-          .order('start_datetime', { ascending: true });
+    list: async (filters?: { roomId?: string, month?: number, year?: number, status?: string, userId?: string }): Promise<Booking[]> => {
+      let query = supabase
+        .from('bookings')
+        .select(`*, rooms (*), users!user_id (*)`)
+        .order('start_datetime', { ascending: true });
 
-        if (filters?.roomId) query = query.eq('room_id', filters.roomId);
-        if (filters?.status) query = query.eq('status', filters.status);
-        
-        const { data, error } = await query;
-        if (!error && data) return data as Booking[];
-      } catch (e) {}
+      if (filters?.roomId) {
+        query = query.eq('room_id', filters.roomId);
+      }
+      if (filters?.userId) {
+        query = query.eq('user_id', filters.userId);
+      }
+      if (filters?.status) {
+        query = query.eq('status', filters.status);
+      }
 
-      // Mock Filtering
-      let results = [...MOCK_BOOKINGS];
-      if (filters?.roomId) results = results.filter(b => b.room_id === filters.roomId);
-      if (filters?.status) results = results.filter(b => b.status === filters.status);
-      return results;
+      const { data, error } = await query;
+
+      if (error) {
+        console.error('Error fetching bookings:', error);
+        return [];
+      }
+
+      return data as Booking[];
     },
 
     // POST /api/bookings/create
@@ -197,78 +129,149 @@ export const api = {
       start_datetime: string;
       end_datetime: string;
     }): Promise<{ success: boolean; message: string }> => {
-      // 1. Check for overlap (Mock logic roughly)
-      const hasOverlap = MOCK_BOOKINGS.some(b => 
-        b.room_id === booking.room_id &&
-        b.status !== BookingStatus.REJECTED &&
-        b.status !== BookingStatus.CANCELLED &&
-        ((booking.start_datetime >= b.start_datetime && booking.start_datetime < b.end_datetime) ||
-         (booking.end_datetime > b.start_datetime && booking.end_datetime <= b.end_datetime))
-      );
-
-      // Try Supabase first
-      try {
-        const { data: overlaps } = await supabase
+      // Check for overlapping bookings
+      const { data: overlaps, error: overlapError } = await supabase
         .from('bookings')
         .select('id')
         .eq('room_id', booking.room_id)
         .neq('status', 'REJECTED')
         .neq('status', 'CANCELLED')
-        .or(`and(start_datetime.lte.${booking.end_datetime},end_datetime.gte.${booking.start_datetime})`);
-        
-        if (overlaps && overlaps.length > 0) return { success: false, message: 'ห้องนี้ถูกจองในช่วงเวลานั้นแล้ว' };
+        .lt('start_datetime', booking.end_datetime)
+        .gt('end_datetime', booking.start_datetime);
 
-        const { error } = await supabase.from('bookings').insert({ ...booking, status: BookingStatus.PENDING });
-        if (!error) return { success: true, message: 'ส่งคำขอจองห้องเรียบร้อยแล้ว!' };
-      } catch (e) {}
+      if (overlapError) {
+        console.error('Error checking overlaps:', overlapError);
+        return { success: false, message: 'เกิดข้อผิดพลาดในการตรวจสอบการจอง' };
+      }
 
-      // Mock Fallback
-      if (hasOverlap) return { success: false, message: 'ห้องนี้ถูกจองในช่วงเวลานั้นแล้ว (Mock)' };
-      
-      const newBooking: any = {
+      if (overlaps && overlaps.length > 0) {
+        return { success: false, message: 'ห้องนี้ถูกจองในช่วงเวลานั้นแล้ว' };
+      }
+
+      // Create booking
+      const { data, error } = await supabase.from('bookings').insert({
         ...booking,
-        id: Math.random().toString(),
-        status: BookingStatus.PENDING,
-        created_at: new Date().toISOString(),
-        rooms: MOCK_ROOMS.find(r => r.id === booking.room_id),
-        users: MOCK_USERS.find(u => u.id === booking.user_id)
-      };
-      MOCK_BOOKINGS.push(newBooking);
-      return { success: true, message: 'ส่งคำขอจองห้องเรียบร้อยแล้ว (Mock)!' };
+        status: BookingStatus.PENDING
+      }).select();
+
+      if (error) {
+        console.error('Error creating booking:', error);
+        return { success: false, message: 'เกิดข้อผิดพลาดในการสร้างการจอง' };
+      }
+
+      // Trigger Email Notification (Non-blocking)
+      if (data && data[0]?.id) {
+        supabase.functions.invoke('send-notification-email', {
+          body: { type: 'NEW_BOOKING', bookingId: data[0].id }
+        }).catch(err => console.error('Failed to send notification:', err));
+      }
+
+      return { success: true, message: 'ส่งคำขอจองห้องเรียบร้อยแล้ว!' };
     },
 
-    // POST /api/bookings/approve
-    updateStatus: async (bookingId: string, status: BookingStatus, approverId: string): Promise<void> => {
-      try {
-        await supabase.from('bookings').update({ status, approver_id: approverId, approved_at: new Date().toISOString() }).eq('id', bookingId);
-      } catch (e) {}
+    // POST /api/bookings/updateStatus
+    updateStatus: async (bookingId: string, status: BookingStatus, approverId: string): Promise<{ success: boolean; error?: string }> => {
+      const updateData: any = {
+        status,
+        approver_id: approverId
+      };
 
-      // Mock Update
-      const idx = MOCK_BOOKINGS.findIndex(b => b.id === bookingId);
-      if (idx !== -1) {
-        MOCK_BOOKINGS[idx].status = status;
-        if (status === BookingStatus.APPROVED) {
-            MOCK_BOOKINGS[idx].approver_id = approverId;
-            MOCK_BOOKINGS[idx].approved_at = new Date().toISOString();
-        }
+      if (status === BookingStatus.APPROVED || status === BookingStatus.REJECTED) {
+        updateData.approved_at = new Date().toISOString();
       }
+
+      const { data, error } = await supabase
+        .from('bookings')
+        .update(updateData)
+        .eq('id', bookingId)
+        .select();
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      if (!data || data.length === 0) {
+        return { success: false, error: 'ไม่สามารถบันทึกข้อมูลได้ (อาจเกิดจากสิทธิ์การใช้งาน หรือไม่พบรายการจอง)' };
+      }
+
+      // Trigger Email Notification (Non-blocking)
+      if (status === BookingStatus.APPROVED || status === BookingStatus.REJECTED) {
+        supabase.functions.invoke('send-notification-email', {
+          body: { type: 'BOOKING_STATUS_UPDATE', bookingId: bookingId }
+        }).catch(err => console.error('Failed to send notification:', err));
+      }
+
+      return { success: true };
+    },
+
+    // DELETE /api/bookings/delete
+    delete: async (bookingId: string): Promise<{ success: boolean; error?: string }> => {
+      const { error } = await supabase.from('bookings').delete().eq('id', bookingId);
+      if (error) {
+        console.error('Error deleting booking:', error);
+        return { success: false, error: error.message };
+      }
+      return { success: true };
     }
   },
 
   dashboard: {
-     // GET /api/dashboard/summary
+    // GET /api/dashboard/summary
     getStats: async () => {
-      let bookings = MOCK_BOOKINGS;
-      try {
-          const { data } = await supabase.from('bookings').select('*, rooms(room_name)');
-          if (data && data.length > 0) bookings = data;
-      } catch(e) {}
+      const { data: bookings, error } = await supabase
+        .from('bookings')
+        .select('*, rooms(room_name), users!user_id(full_name)');
 
-      const totalBookings = bookings.length;
-      const pendingCount = bookings.filter(b => b.status === BookingStatus.PENDING).length;
-      
+      const { data: users } = await supabase
+        .from('users')
+        .select('id, role')
+        .eq('status', 'ACTIVE');
+
+      const { data: rooms } = await supabase
+        .from('rooms')
+        .select('id')
+        .eq('status', 'ACTIVE');
+
+      if (error) {
+        console.error('Error fetching dashboard stats:', error);
+        return {
+          totalBookings: 0,
+          pendingCount: 0,
+          approvedCount: 0,
+          rejectedCount: 0,
+          todayBookings: 0,
+          thisMonthBookings: 0,
+          totalUsers: 0,
+          totalRooms: 0,
+          topRooms: [],
+          recentBookings: [],
+          allBookings: []
+        };
+      }
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+
+      const totalBookings = bookings?.length || 0;
+      const pendingCount = bookings?.filter(b => b.status === BookingStatus.PENDING).length || 0;
+      const approvedCount = bookings?.filter(b => b.status === BookingStatus.APPROVED).length || 0;
+      const rejectedCount = bookings?.filter(b => b.status === BookingStatus.REJECTED).length || 0;
+
+      const todayBookings = bookings?.filter(b => {
+        const bookingDate = new Date(b.start_datetime);
+        bookingDate.setHours(0, 0, 0, 0);
+        return bookingDate.getTime() === today.getTime();
+      }).length || 0;
+
+      const thisMonthBookings = bookings?.filter(b => {
+        const bookingDate = new Date(b.start_datetime);
+        return bookingDate >= startOfMonth;
+      }).length || 0;
+
+      // Calculate room statistics
       const roomStats: Record<string, number> = {};
-      bookings.forEach((b: any) => {
+      bookings?.forEach((b: any) => {
         const name = b.rooms?.room_name || 'ไม่ระบุ';
         roomStats[name] = (roomStats[name] || 0) + 1;
       });
@@ -278,11 +281,32 @@ export const api = {
         .sort((a, b) => b.count - a.count)
         .slice(0, 5);
 
+      // Recent bookings (last 5)
+      const recentBookings = (bookings || [])
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .slice(0, 5)
+        .map(b => ({
+          id: b.id,
+          title: b.title,
+          roomName: b.rooms?.room_name || '-',
+          userName: b.users?.full_name || '-',
+          status: b.status,
+          startDatetime: b.start_datetime,
+          createdAt: b.created_at
+        }));
+
       return {
         totalBookings,
         pendingCount,
+        approvedCount,
+        rejectedCount,
+        todayBookings,
+        thisMonthBookings,
+        totalUsers: users?.length || 0,
+        totalRooms: rooms?.length || 0,
         topRooms,
-        allBookings: bookings
+        recentBookings,
+        allBookings: bookings || []
       };
     }
   }
