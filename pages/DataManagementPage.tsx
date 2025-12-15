@@ -50,7 +50,7 @@ export const DataManagementPage: React.FC = () => {
             }
 
             // Create CSV content
-            const headers = ['id', 'username', 'email', 'full_name', 'role', 'status', 'created_at'];
+            const headers = ['id', 'username', 'password_hash', 'email', 'full_name', 'role', 'status', 'created_at'];
             const csvContent = [
                 headers.join(','),
                 ...users.map(user =>
@@ -384,7 +384,7 @@ export const DataManagementPage: React.FC = () => {
         let filename = '';
 
         if (type === 'users') {
-            content = 'username,email,full_name,role,status\njohn_doe,john@example.com,John Doe,USER,ACTIVE\njane_smith,jane@example.com,Jane Smith,APPROVER,ACTIVE';
+            content = 'username,password_hash,email,full_name,role,status\njohn_doe,password123,john@example.com,John Doe,USER,ACTIVE\njane_smith,password456,jane@example.com,Jane Smith,APPROVER,ACTIVE';
             filename = 'users_template.csv';
         } else {
             content = 'room_id,user_id,title,purpose,start_datetime,end_datetime,status\n[ROOM_UUID],[USER_UUID],ประชุมทีม,ประชุมประจำสัปดาห์,2024-01-15T09:00:00,2024-01-15T10:00:00,PENDING';
@@ -677,13 +677,14 @@ export const DataManagementPage: React.FC = () => {
                                 <h4 className="font-medium text-gray-800 mb-2">รูปแบบไฟล์ CSV สำหรับผู้ใช้งาน:</h4>
                                 <div className="bg-gray-50 rounded-lg p-4 font-mono text-sm overflow-x-auto">
                                     <div className="text-gray-500">// Header</div>
-                                    <div>username,email,full_name,role,status</div>
+                                    <div>username,password_hash,email,full_name,role,status</div>
                                     <div className="text-gray-500 mt-2">// ตัวอย่างข้อมูล</div>
-                                    <div>john_doe,john@example.com,John Doe,USER,ACTIVE</div>
+                                    <div>john_doe,password123,john@example.com,John Doe,USER,ACTIVE</div>
                                 </div>
                             </div>
                             <ul className="list-disc list-inside space-y-1 text-sm">
                                 <li><strong>username</strong> - ชื่อผู้ใช้ (จำเป็น, ไม่ซ้ำ)</li>
+                                <li><strong>password_hash</strong> - รหัสผ่าน (จำเป็น)</li>
                                 <li><strong>email</strong> - อีเมล</li>
                                 <li><strong>full_name</strong> - ชื่อ-นามสกุล (จำเป็น)</li>
                                 <li><strong>role</strong> - สิทธิ์ (USER, APPROVER, ADMIN)</li>
