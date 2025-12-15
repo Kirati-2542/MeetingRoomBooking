@@ -21,14 +21,23 @@ interface ImportResult {
     errors: string[];
 }
 
+interface PreviewRow {
+    data: any;
+    selected: boolean;
+    isExisting: boolean;
+    existingData?: any;
+}
+
 export const DataManagementPage: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'users' | 'bookings'>('users');
     const [isExporting, setIsExporting] = useState(false);
     const [isImporting, setIsImporting] = useState(false);
     const [importResult, setImportResult] = useState<ImportResult | null>(null);
-    const [previewData, setPreviewData] = useState<any[] | null>(null);
+    const [previewData, setPreviewData] = useState<PreviewRow[] | null>(null);
     const [showPreview, setShowPreview] = useState(false);
     const [selectedEncoding, setSelectedEncoding] = useState<string>('UTF-8');
+    const [isCheckingExisting, setIsCheckingExisting] = useState(false);
+    const [editingCell, setEditingCell] = useState<{ rowIndex: number; field: string } | null>(null);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -139,18 +148,54 @@ export const DataManagementPage: React.FC = () => {
         if (!file) return;
 
         try {
+            setIsCheckingExisting(true);
             const text = await readFileWithEncoding(file, selectedEncoding);
             const rows = parseCSV(text);
 
             if (rows.length < 1) {
                 alert('ไฟล์ CSV ต้องมีข้อมูลอย่างน้อย 1 แถว (ไม่รวม header)');
+                setIsCheckingExisting(false);
                 return;
             }
 
-            setPreviewData(rows);
+            // Check existing data for users
+            let previewRows: PreviewRow[] = [];
+
+            if (activeTab === 'users') {
+                // Get all usernames from CSV
+                const usernames = rows.map(row => row.username).filter(Boolean);
+
+                // Check which users already exist
+                const { data: existingUsers } = await supabase
+                    .from('users')
+                    .select('*')
+                    .in('username', usernames);
+
+                const existingMap = new Map(
+                    (existingUsers || []).map(u => [u.username, u])
+                );
+
+                previewRows = rows.map(row => ({
+                    data: row,
+                    selected: true,
+                    isExisting: existingMap.has(row.username),
+                    existingData: existingMap.get(row.username)
+                }));
+            } else {
+                // For bookings, just mark all as new
+                previewRows = rows.map(row => ({
+                    data: row,
+                    selected: true,
+                    isExisting: false
+                }));
+            }
+
+            setPreviewData(previewRows);
             setShowPreview(true);
         } catch (error: any) {
             alert('เกิดข้อผิดพลาดในการอ่านไฟล์: ' + error.message);
+        } finally {
+            setIsCheckingExisting(false);
         }
 
         // Reset file input
@@ -225,13 +270,57 @@ export const DataManagementPage: React.FC = () => {
         return result;
     };
 
+    // ==================== PREVIEW MANAGEMENT ====================
+
+    const toggleRowSelection = (index: number) => {
+        if (!previewData) return;
+        const newData = [...previewData];
+        newData[index] = { ...newData[index], selected: !newData[index].selected };
+        setPreviewData(newData);
+    };
+
+    const toggleSelectAll = () => {
+        if (!previewData) return;
+        const allSelected = previewData.every(row => row.selected);
+        setPreviewData(previewData.map(row => ({ ...row, selected: !allSelected })));
+    };
+
+    const updateCellValue = (rowIndex: number, field: string, value: string) => {
+        if (!previewData) return;
+        const newData = [...previewData];
+        newData[rowIndex] = {
+            ...newData[rowIndex],
+            data: { ...newData[rowIndex].data, [field]: value }
+        };
+        setPreviewData(newData);
+    };
+
+    const getSelectedCount = () => {
+        return previewData?.filter(row => row.selected).length || 0;
+    };
+
+    const getNewCount = () => {
+        return previewData?.filter(row => !row.isExisting).length || 0;
+    };
+
+    const getExistingCount = () => {
+        return previewData?.filter(row => row.isExisting).length || 0;
+    };
+
     const importUsers = async () => {
         if (!previewData || previewData.length === 0) return;
+
+        const selectedRows = previewData.filter(row => row.selected);
+        if (selectedRows.length === 0) {
+            alert('กรุณาเลือกอย่างน้อย 1 รายการเพื่อนำเข้า');
+            return;
+        }
 
         setIsImporting(true);
         const result: ImportResult = { success: 0, failed: 0, errors: [] };
 
-        for (const row of previewData) {
+        for (const previewRow of selectedRows) {
+            const row = previewRow.data;
             try {
                 // Validate required fields
                 if (!row.username || !row.full_name) {
@@ -264,17 +353,10 @@ export const DataManagementPage: React.FC = () => {
                     full_name: row.full_name,
                     role: role as UserRole,
                     status: status as 'ACTIVE' | 'INACTIVE',
-                    password_hash: row.password_hash || 'default_hash' // You may want to handle password differently
+                    password_hash: row.password_hash || 'default_hash'
                 };
 
-                // Check if user already exists
-                const { data: existing } = await supabase
-                    .from('users')
-                    .select('id')
-                    .eq('username', row.username)
-                    .single();
-
-                if (existing) {
+                if (previewRow.isExisting) {
                     // Update existing user
                     const { error } = await supabase
                         .from('users')
@@ -307,10 +389,17 @@ export const DataManagementPage: React.FC = () => {
     const importBookings = async () => {
         if (!previewData || previewData.length === 0) return;
 
+        const selectedRows = previewData.filter(row => row.selected);
+        if (selectedRows.length === 0) {
+            alert('กรุณาเลือกอย่างน้อย 1 รายการเพื่อนำเข้า');
+            return;
+        }
+
         setIsImporting(true);
         const result: ImportResult = { success: 0, failed: 0, errors: [] };
 
-        for (const row of previewData) {
+        for (const previewRow of selectedRows) {
+            const row = previewRow.data;
             try {
                 // Validate required fields
                 if (!row.room_id || !row.user_id || !row.title || !row.start_datetime || !row.end_datetime) {
@@ -586,7 +675,8 @@ export const DataManagementPage: React.FC = () => {
                 {/* Preview Modal */}
                 {showPreview && previewData && (
                     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                        <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[80vh] overflow-hidden animate-scale-in">
+                        <div className="bg-white rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden animate-scale-in">
+                            {/* Header */}
                             <div className="p-6 border-b border-gray-100">
                                 <div className="flex items-center justify-between">
                                     <h3 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
@@ -594,22 +684,55 @@ export const DataManagementPage: React.FC = () => {
                                         ตรวจสอบข้อมูลก่อนนำเข้า
                                     </h3>
                                     <button
-                                        onClick={() => { setShowPreview(false); setPreviewData(null); }}
+                                        onClick={() => { setShowPreview(false); setPreviewData(null); setEditingCell(null); }}
                                         className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                                     >
-                                        <Trash2 className="w-5 h-5 text-gray-500" />
+                                        <XCircle className="w-5 h-5 text-gray-500" />
                                     </button>
                                 </div>
-                                <p className="text-gray-500 text-sm mt-1">
-                                    พบข้อมูล {previewData.length} รายการ
+
+                                {/* Summary Stats */}
+                                <div className="flex flex-wrap gap-4 mt-4">
+                                    <div className="flex items-center gap-2 bg-gray-100 px-3 py-1.5 rounded-lg">
+                                        <span className="text-gray-600 text-sm">ทั้งหมด:</span>
+                                        <span className="font-semibold text-gray-800">{previewData.length}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 bg-sky-100 px-3 py-1.5 rounded-lg">
+                                        <span className="text-sky-600 text-sm">เลือก:</span>
+                                        <span className="font-semibold text-sky-800">{getSelectedCount()}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 bg-green-100 px-3 py-1.5 rounded-lg">
+                                        <span className="text-green-600 text-sm">ใหม่:</span>
+                                        <span className="font-semibold text-green-800">{getNewCount()}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 bg-amber-100 px-3 py-1.5 rounded-lg">
+                                        <span className="text-amber-600 text-sm">มีอยู่แล้ว:</span>
+                                        <span className="font-semibold text-amber-800">{getExistingCount()}</span>
+                                    </div>
+                                </div>
+
+                                <p className="text-gray-500 text-xs mt-3">
+                                    💡 คลิกที่ช่องข้อมูลเพื่อแก้ไข | ข้อมูลที่มีอยู่แล้วจะถูกอัปเดต
                                 </p>
                             </div>
 
-                            <div className="p-6 overflow-auto max-h-[50vh]">
+                            {/* Table */}
+                            <div className="p-4 overflow-auto max-h-[55vh]">
                                 <table className="w-full text-sm">
-                                    <thead>
+                                    <thead className="sticky top-0 bg-white">
                                         <tr className="bg-gray-50">
-                                            {Object.keys(previewData[0] || {}).map((key) => (
+                                            <th className="px-3 py-2 text-left font-medium text-gray-700 border-b w-10">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={previewData.every(row => row.selected)}
+                                                    onChange={toggleSelectAll}
+                                                    className="w-4 h-4 rounded border-gray-300 text-sky-500 focus:ring-sky-400"
+                                                />
+                                            </th>
+                                            <th className="px-3 py-2 text-left font-medium text-gray-700 border-b w-20">
+                                                สถานะ
+                                            </th>
+                                            {previewData[0] && Object.keys(previewData[0].data).map((key) => (
                                                 <th key={key} className="px-3 py-2 text-left font-medium text-gray-700 border-b">
                                                     {key}
                                                 </th>
@@ -617,48 +740,106 @@ export const DataManagementPage: React.FC = () => {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {previewData.slice(0, 10).map((row, index) => (
-                                            <tr key={index} className="hover:bg-gray-50">
-                                                {Object.values(row).map((value: any, i) => (
-                                                    <td key={i} className="px-3 py-2 border-b border-gray-100 truncate max-w-[200px]">
-                                                        {value}
+                                        {previewData.map((previewRow, rowIndex) => (
+                                            <tr
+                                                key={rowIndex}
+                                                className={`hover:bg-gray-50 ${!previewRow.selected ? 'opacity-50 bg-gray-50' : ''} ${previewRow.isExisting ? 'bg-amber-50/50' : ''}`}
+                                            >
+                                                {/* Checkbox */}
+                                                <td className="px-3 py-2 border-b border-gray-100">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={previewRow.selected}
+                                                        onChange={() => toggleRowSelection(rowIndex)}
+                                                        className="w-4 h-4 rounded border-gray-300 text-sky-500 focus:ring-sky-400"
+                                                    />
+                                                </td>
+
+                                                {/* Status Badge */}
+                                                <td className="px-3 py-2 border-b border-gray-100">
+                                                    {previewRow.isExisting ? (
+                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
+                                                            <RefreshCw className="w-3 h-3" />
+                                                            อัปเดต
+                                                        </span>
+                                                    ) : (
+                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                                                            <CheckCircle className="w-3 h-3" />
+                                                            ใหม่
+                                                        </span>
+                                                    )}
+                                                </td>
+
+                                                {/* Data Cells - Editable */}
+                                                {Object.entries(previewRow.data).map(([field, value]: [string, any], cellIndex) => (
+                                                    <td
+                                                        key={cellIndex}
+                                                        className="px-1 py-1 border-b border-gray-100"
+                                                    >
+                                                        {editingCell?.rowIndex === rowIndex && editingCell?.field === field ? (
+                                                            <input
+                                                                type="text"
+                                                                value={value}
+                                                                onChange={(e) => updateCellValue(rowIndex, field, e.target.value)}
+                                                                onBlur={() => setEditingCell(null)}
+                                                                onKeyDown={(e) => {
+                                                                    if (e.key === 'Enter') setEditingCell(null);
+                                                                    if (e.key === 'Escape') setEditingCell(null);
+                                                                }}
+                                                                autoFocus
+                                                                className="w-full px-2 py-1 text-sm border-2 border-sky-400 rounded focus:outline-none focus:ring-2 focus:ring-sky-200"
+                                                            />
+                                                        ) : (
+                                                            <div
+                                                                onClick={() => previewRow.selected && setEditingCell({ rowIndex, field })}
+                                                                className={`px-2 py-1 rounded cursor-pointer hover:bg-sky-50 truncate max-w-[180px] ${previewRow.isExisting && previewRow.existingData?.[field] !== value
+                                                                        ? 'bg-yellow-100 border border-yellow-300'
+                                                                        : ''
+                                                                    }`}
+                                                                title={`${value}${previewRow.isExisting && previewRow.existingData?.[field] !== value ? ` (เดิม: ${previewRow.existingData?.[field]})` : ''}`}
+                                                            >
+                                                                {value || <span className="text-gray-400 italic">ว่าง</span>}
+                                                            </div>
+                                                        )}
                                                     </td>
                                                 ))}
                                             </tr>
                                         ))}
                                     </tbody>
                                 </table>
-                                {previewData.length > 10 && (
-                                    <p className="text-gray-500 text-center mt-4 text-sm">
-                                        ...และอีก {previewData.length - 10} รายการ
-                                    </p>
-                                )}
                             </div>
 
-                            <div className="p-6 border-t border-gray-100 flex justify-end gap-3">
-                                <button
-                                    onClick={() => { setShowPreview(false); setPreviewData(null); }}
-                                    className="px-6 py-2.5 bg-gray-100 text-gray-700 font-medium rounded-xl hover:bg-gray-200 transition-colors"
-                                >
-                                    ยกเลิก
-                                </button>
-                                <button
-                                    onClick={activeTab === 'users' ? importUsers : importBookings}
-                                    disabled={isImporting}
-                                    className="px-6 py-2.5 bg-gradient-to-r from-sky-400 to-blue-500 text-white font-medium rounded-xl shadow-lg shadow-sky-400/25 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-50 flex items-center gap-2"
-                                >
-                                    {isImporting ? (
-                                        <>
-                                            <RefreshCw className="w-4 h-4 animate-spin" />
-                                            กำลังนำเข้า...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Upload className="w-4 h-4" />
-                                            นำเข้าข้อมูล
-                                        </>
-                                    )}
-                                </button>
+                            {/* Footer */}
+                            <div className="p-6 border-t border-gray-100 flex items-center justify-between">
+                                <div className="text-sm text-gray-500">
+                                    <span className="inline-block w-3 h-3 bg-yellow-100 border border-yellow-300 rounded mr-1"></span>
+                                    = ค่าที่เปลี่ยนแปลงจากข้อมูลเดิม
+                                </div>
+                                <div className="flex gap-3">
+                                    <button
+                                        onClick={() => { setShowPreview(false); setPreviewData(null); setEditingCell(null); }}
+                                        className="px-6 py-2.5 bg-gray-100 text-gray-700 font-medium rounded-xl hover:bg-gray-200 transition-colors"
+                                    >
+                                        ยกเลิก
+                                    </button>
+                                    <button
+                                        onClick={activeTab === 'users' ? importUsers : importBookings}
+                                        disabled={isImporting || getSelectedCount() === 0}
+                                        className="px-6 py-2.5 bg-gradient-to-r from-sky-400 to-blue-500 text-white font-medium rounded-xl shadow-lg shadow-sky-400/25 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                                    >
+                                        {isImporting ? (
+                                            <>
+                                                <RefreshCw className="w-4 h-4 animate-spin" />
+                                                กำลังนำเข้า...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Upload className="w-4 h-4" />
+                                                นำเข้า {getSelectedCount()} รายการ
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
