@@ -50,9 +50,11 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogout, currentPage, onN
             {/* Logo */}
             <div className="flex items-center">
               <div className="flex items-center gap-3 cursor-pointer group" onClick={() => onNavigate('calendar')}>
-                <div className="h-10 w-10 bg-gradient-to-br from-sky-400 via-blue-400 to-teal-400 rounded-xl flex items-center justify-center shadow-lg shadow-sky-400/20 group-hover:shadow-xl group-hover:shadow-sky-400/30 transition-all duration-300">
-                  <Sparkles className="w-5 h-5 text-white" />
-                </div>
+                <img
+                  src="/logo.png"
+                  alt="EduMeet"
+                  className="h-10 w-auto rounded-xl shadow-lg shadow-sky-400/20 group-hover:shadow-xl group-hover:shadow-sky-400/30 transition-all duration-300"
+                />
                 <span className="text-xl font-bold bg-gradient-to-r from-sky-500 via-blue-500 to-teal-500 bg-clip-text text-transparent">
                   EduMeet
                 </span>
