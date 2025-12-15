@@ -48,9 +48,13 @@ serve(async (req) => {
         }
 
         const formatDate = (dateString: string) => {
-            return new Date(dateString).toLocaleString('en-US', {
-                dateStyle: 'medium',
-                timeStyle: 'short',
+            return new Date(dateString).toLocaleString('th-TH', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false,
             })
         }
 
