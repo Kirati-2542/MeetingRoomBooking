@@ -7,6 +7,7 @@ import { DashboardPage } from './pages/DashboardPage';
 import { MyBookingsPage } from './pages/MyBookingsPage';
 import { BookingHistoryPage } from './pages/BookingHistoryPage';
 import { RoomManagementPage } from './pages/RoomManagementPage';
+import { DataManagementPage } from './pages/DataManagementPage';
 import { User, UserRole } from './types';
 
 // Simple "Router" component for SPA without full React Router dependency complexity in single file response
@@ -63,6 +64,9 @@ export default function App() {
       case 'history':
         if (user.role === UserRole.USER) return <div className="p-8 text-center text-red-500">คุณไม่มีสิทธิ์เข้าถึงหน้านี้</div>;
         return <BookingHistoryPage user={user} />;
+      case 'data-management':
+        if (user.role !== UserRole.ADMIN) return <div className="p-8 text-center text-red-500">คุณไม่มีสิทธิ์เข้าถึงหน้านี้</div>;
+        return <DataManagementPage />;
       default:
         return <CalendarPage user={user} />;
     }

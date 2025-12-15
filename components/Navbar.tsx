@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { User, UserRole } from '../types';
-import { Calendar, LogOut, LayoutDashboard, Settings, Menu, X, Plus, User as UserIcon, CheckSquare, List, FileText, Sparkles } from 'lucide-react';
+import { Calendar, LogOut, LayoutDashboard, Settings, Menu, X, Plus, User as UserIcon, CheckSquare, List, FileText, Sparkles, Database } from 'lucide-react';
 
 interface NavbarProps {
   user: User;
@@ -115,6 +115,13 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogout, currentPage, onN
                       <LayoutDashboard className="w-4 h-4" />
                       แดชบอร์ด
                     </button>
+                    <button
+                      onClick={() => onNavigate('data-management')}
+                      className={navItemClass('data-management')}
+                    >
+                      <Database className="w-4 h-4" />
+                      จัดการข้อมูล
+                    </button>
                   </>
                 )}
               </div>
@@ -183,6 +190,10 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogout, currentPage, onN
                   <button onClick={() => { onNavigate('dashboard'); setMobileMenuOpen(false); }} className={mobileNavItemClass('dashboard') + ' w-full'}>
                     <LayoutDashboard className="w-5 h-5" />
                     แดชบอร์ด
+                  </button>
+                  <button onClick={() => { onNavigate('data-management'); setMobileMenuOpen(false); }} className={mobileNavItemClass('data-management') + ' w-full'}>
+                    <Database className="w-5 h-5" />
+                    จัดการข้อมูล
                   </button>
                 </>
               )}
