@@ -28,6 +28,7 @@ export const DataManagementPage: React.FC = () => {
     const [importResult, setImportResult] = useState<ImportResult | null>(null);
     const [previewData, setPreviewData] = useState<any[] | null>(null);
     const [showPreview, setShowPreview] = useState(false);
+    const [selectedEncoding, setSelectedEncoding] = useState<string>('UTF-8');
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -137,21 +138,45 @@ export const DataManagementPage: React.FC = () => {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        const text = await file.text();
-        const rows = parseCSV(text);
+        try {
+            const text = await readFileWithEncoding(file, selectedEncoding);
+            const rows = parseCSV(text);
 
-        if (rows.length < 2) {
-            alert('ไฟล์ CSV ต้องมีข้อมูลอย่างน้อย 1 แถว (ไม่รวม header)');
-            return;
+            if (rows.length < 1) {
+                alert('ไฟล์ CSV ต้องมีข้อมูลอย่างน้อย 1 แถว (ไม่รวม header)');
+                return;
+            }
+
+            setPreviewData(rows);
+            setShowPreview(true);
+        } catch (error: any) {
+            alert('เกิดข้อผิดพลาดในการอ่านไฟล์: ' + error.message);
         }
-
-        setPreviewData(rows);
-        setShowPreview(true);
 
         // Reset file input
         if (fileInputRef.current) {
             fileInputRef.current.value = '';
         }
+    };
+
+    const readFileWithEncoding = (file: File, encoding: string): Promise<string> => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+
+            reader.onload = (e) => {
+                try {
+                    const arrayBuffer = e.target?.result as ArrayBuffer;
+                    const decoder = new TextDecoder(encoding);
+                    const text = decoder.decode(arrayBuffer);
+                    resolve(text);
+                } catch (error) {
+                    reject(error);
+                }
+            };
+
+            reader.onerror = () => reject(new Error('ไม่สามารถอ่านไฟล์ได้'));
+            reader.readAsArrayBuffer(file);
+        });
     };
 
     const parseCSV = (text: string): any[] => {
@@ -392,8 +417,8 @@ export const DataManagementPage: React.FC = () => {
                     <button
                         onClick={() => { setActiveTab('users'); setImportResult(null); }}
                         className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all duration-300 ${activeTab === 'users'
-                                ? 'bg-gradient-to-r from-sky-400 via-blue-400 to-teal-400 text-white shadow-lg shadow-sky-400/25'
-                                : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200'
+                            ? 'bg-gradient-to-r from-sky-400 via-blue-400 to-teal-400 text-white shadow-lg shadow-sky-400/25'
+                            : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200'
                             }`}
                     >
                         <Users className="w-5 h-5" />
@@ -402,8 +427,8 @@ export const DataManagementPage: React.FC = () => {
                     <button
                         onClick={() => { setActiveTab('bookings'); setImportResult(null); }}
                         className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all duration-300 ${activeTab === 'bookings'
-                                ? 'bg-gradient-to-r from-sky-400 via-blue-400 to-teal-400 text-white shadow-lg shadow-sky-400/25'
-                                : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200'
+                            ? 'bg-gradient-to-r from-sky-400 via-blue-400 to-teal-400 text-white shadow-lg shadow-sky-400/25'
+                            : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200'
                             }`}
                     >
                         <Calendar className="w-5 h-5" />
@@ -472,6 +497,26 @@ export const DataManagementPage: React.FC = () => {
                                 <FileText className="w-4 h-4" />
                                 ดาวน์โหลดตัวอย่างไฟล์ CSV
                             </button>
+                        </div>
+
+                        {/* Encoding Selector */}
+                        <div className="mb-4">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Encoding ของไฟล์ (สำหรับภาษาไทย เลือก TIS-620 หรือ Windows-874)
+                            </label>
+                            <select
+                                value={selectedEncoding}
+                                onChange={(e) => setSelectedEncoding(e.target.value)}
+                                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-sky-400 focus:border-sky-400 transition-all duration-200 bg-white"
+                            >
+                                <option value="UTF-8">UTF-8 (ค่าเริ่มต้น)</option>
+                                <option value="TIS-620">TIS-620 (ภาษาไทย)</option>
+                                <option value="windows-874">Windows-874 (Thai Windows/Excel)</option>
+                                <option value="windows-1252">Windows-1252 (Western)</option>
+                            </select>
+                            <p className="text-xs text-gray-500 mt-1">
+                                💡 ถ้าภาษาไทยเพี้ยน ลองเปลี่ยนเป็น TIS-620 หรือ Windows-874
+                            </p>
                         </div>
 
                         <input
