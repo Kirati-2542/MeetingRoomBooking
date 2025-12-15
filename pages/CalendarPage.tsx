@@ -447,26 +447,70 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({ user }) => {
                       <Clock className="w-4 h-4 inline mr-1" />
                       เวลาเริ่ม
                     </label>
-                    <input
-                      type="time"
-                      required
-                      value={formData.startTime}
-                      onChange={e => setFormData({ ...formData, startTime: e.target.value })}
-                      className="input-modern"
-                    />
+                    <div className="flex gap-2">
+                      <select
+                        required
+                        value={formData.startTime.split(':')[0]}
+                        onChange={e => {
+                          const mins = formData.startTime.split(':')[1] || '00';
+                          setFormData({ ...formData, startTime: `${e.target.value}:${mins}` });
+                        }}
+                        className="input-modern flex-1"
+                      >
+                        {Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0')).map(h => (
+                          <option key={h} value={h}>{h}</option>
+                        ))}
+                      </select>
+                      <span className="flex items-center text-gray-500 font-semibold">:</span>
+                      <select
+                        required
+                        value={formData.startTime.split(':')[1] || '00'}
+                        onChange={e => {
+                          const hrs = formData.startTime.split(':')[0] || '09';
+                          setFormData({ ...formData, startTime: `${hrs}:${e.target.value}` });
+                        }}
+                        className="input-modern flex-1"
+                      >
+                        {['00', '15', '30', '45'].map(m => (
+                          <option key={m} value={m}>{m}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
                       <Clock className="w-4 h-4 inline mr-1" />
                       เวลาสิ้นสุด
                     </label>
-                    <input
-                      type="time"
-                      required
-                      value={formData.endTime}
-                      onChange={e => setFormData({ ...formData, endTime: e.target.value })}
-                      className="input-modern"
-                    />
+                    <div className="flex gap-2">
+                      <select
+                        required
+                        value={formData.endTime.split(':')[0]}
+                        onChange={e => {
+                          const mins = formData.endTime.split(':')[1] || '00';
+                          setFormData({ ...formData, endTime: `${e.target.value}:${mins}` });
+                        }}
+                        className="input-modern flex-1"
+                      >
+                        {Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0')).map(h => (
+                          <option key={h} value={h}>{h}</option>
+                        ))}
+                      </select>
+                      <span className="flex items-center text-gray-500 font-semibold">:</span>
+                      <select
+                        required
+                        value={formData.endTime.split(':')[1] || '00'}
+                        onChange={e => {
+                          const hrs = formData.endTime.split(':')[0] || '10';
+                          setFormData({ ...formData, endTime: `${hrs}:${e.target.value}` });
+                        }}
+                        className="input-modern flex-1"
+                      >
+                        {['00', '15', '30', '45'].map(m => (
+                          <option key={m} value={m}>{m}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
                 </div>
 
