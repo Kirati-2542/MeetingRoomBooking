@@ -27,12 +27,8 @@ export default function App() {
     setUser(loggedInUser);
     localStorage.setItem('eduMeetUser', JSON.stringify(loggedInUser));
 
-    // Redirect based on role
-    if (loggedInUser.role === UserRole.ADMIN || loggedInUser.role === UserRole.APPROVER) {
-      setCurrentPage('approval');
-    } else {
-      setCurrentPage('calendar');
-    }
+    // Always redirect to calendar
+    setCurrentPage('calendar');
   };
 
   const handleLogout = () => {

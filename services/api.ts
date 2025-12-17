@@ -194,8 +194,8 @@ export const api = {
         return { success: false, error: 'ไม่สามารถบันทึกข้อมูลได้ (อาจเกิดจากสิทธิ์การใช้งาน หรือไม่พบรายการจอง)' };
       }
 
-      // Trigger Email Notification (Non-blocking)
-      if (status === BookingStatus.APPROVED || status === BookingStatus.REJECTED) {
+      // Trigger Email Notification (Non-blocking) - including CANCELLED status
+      if (status === BookingStatus.APPROVED || status === BookingStatus.REJECTED || status === BookingStatus.CANCELLED) {
         supabase.functions.invoke('send-notification-email', {
           body: { type: 'BOOKING_STATUS_UPDATE', bookingId: bookingId }
         }).catch(err => console.error('Failed to send notification:', err));
@@ -239,6 +239,7 @@ export const api = {
           pendingCount: 0,
           approvedCount: 0,
           rejectedCount: 0,
+          cancelledCount: 0,
           todayBookings: 0,
           thisMonthBookings: 0,
           totalUsers: 0,
@@ -257,6 +258,7 @@ export const api = {
       const pendingCount = bookings?.filter(b => b.status === BookingStatus.PENDING).length || 0;
       const approvedCount = bookings?.filter(b => b.status === BookingStatus.APPROVED).length || 0;
       const rejectedCount = bookings?.filter(b => b.status === BookingStatus.REJECTED).length || 0;
+      const cancelledCount = bookings?.filter(b => b.status === BookingStatus.CANCELLED).length || 0;
 
       const todayBookings = bookings?.filter(b => {
         const bookingDate = new Date(b.start_datetime);
@@ -292,6 +294,7 @@ export const api = {
           userName: b.users?.full_name || '-',
           status: b.status,
           startDatetime: b.start_datetime,
+          endDatetime: b.end_datetime,
           createdAt: b.created_at
         }));
 
@@ -300,6 +303,7 @@ export const api = {
         pendingCount,
         approvedCount,
         rejectedCount,
+        cancelledCount,
         todayBookings,
         thisMonthBookings,
         totalUsers: users?.length || 0,

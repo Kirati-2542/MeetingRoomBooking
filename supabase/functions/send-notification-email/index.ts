@@ -48,7 +48,8 @@ serve(async (req) => {
         }
 
         const formatDate = (dateString: string) => {
-            return new Date(dateString).toLocaleString('th-TH', {
+            return new Date(dateString).toLocaleString('en-US', {
+                timeZone: 'Asia/Bangkok',
                 year: 'numeric',
                 month: 'short',
                 day: 'numeric',
@@ -124,13 +125,37 @@ ${content}
                 })
             }
             emailTo = [booking.users.email]
+
+            // Handle different statuses
             const isApproved = booking.status === 'APPROVED';
-            const statusText = isApproved ? 'Approved' : 'Rejected'
-            const statusColor = isApproved ? '#10B981' : '#EF4444'
-            const accentColor = isApproved ? '#10B981' : '#EF4444'
-            subject = `[EduMeet] Booking Result: ${booking.title} (${statusText})`
-            const content = `<div style="text-align:center;margin-bottom:24px;"><span style="display:inline-block;padding:8px 16px;border-radius:9999px;font-size:14px;font-weight:600;color:white;background-color:${statusColor};">${statusText}</span><p style="color:#4b5563;">${isApproved ? 'Your booking has been approved.' : 'Sorry, your booking was not approved.'}</p></div><div class="item"><div class="label">Meeting Room</div><div class="value">${booking.rooms.room_name}</div></div><div class="item"><div class="label">Meeting Title</div><div class="value">${booking.title}</div></div><div class="item"><div class="label">Date and Time</div><div class="value">${formatDate(booking.start_datetime)} - ${formatDate(booking.end_datetime)}</div></div><div style="text-align:center;margin-top:32px;"><a href="${SITE_URL}/my-bookings" style="display:inline-block;padding:12px 32px;background-color:${accentColor};color:#ffffff !important;text-decoration:none;border-radius:12px;font-weight:600;">View My Bookings</a></div>`
-            html = getHtmlTemplate('Booking Result', content, accentColor)
+            const isRejected = booking.status === 'REJECTED';
+            const isCancelled = booking.status === 'CANCELLED';
+
+            let statusText = '';
+            let statusColor = '';
+            let accentColor = '';
+            let statusMessage = '';
+
+            if (isApproved) {
+                statusText = 'Approved';
+                statusColor = '#10B981';
+                accentColor = '#10B981';
+                statusMessage = 'Your booking has been approved.';
+            } else if (isRejected) {
+                statusText = 'Rejected';
+                statusColor = '#EF4444';
+                accentColor = '#EF4444';
+                statusMessage = 'Sorry, your booking was not approved.';
+            } else if (isCancelled) {
+                statusText = 'Cancelled';
+                statusColor = '#6B7280';
+                accentColor = '#6B7280';
+                statusMessage = 'Your booking has been cancelled by an administrator.';
+            }
+
+            subject = `[EduMeet] Booking ${statusText}: ${booking.title}`
+            const content = `<div style="text-align:center;margin-bottom:24px;"><span style="display:inline-block;padding:8px 16px;border-radius:9999px;font-size:14px;font-weight:600;color:white;background-color:${statusColor};">${statusText}</span><p style="color:#4b5563;">${statusMessage}</p></div><div class="item"><div class="label">Meeting Room</div><div class="value">${booking.rooms.room_name}</div></div><div class="item"><div class="label">Meeting Title</div><div class="value">${booking.title}</div></div><div class="item"><div class="label">Date and Time</div><div class="value">${formatDate(booking.start_datetime)} - ${formatDate(booking.end_datetime)}</div></div><div style="text-align:center;margin-top:32px;"><a href="${SITE_URL}/my-bookings" style="display:inline-block;padding:12px 32px;background-color:${accentColor};color:#ffffff !important;text-decoration:none;border-radius:12px;font-weight:600;">View My Bookings</a></div>`
+            html = getHtmlTemplate('Booking ' + statusText, content, accentColor)
         }
 
         if (emailTo.length === 0) {
@@ -151,7 +176,6 @@ ${content}
                 },
             },
         });
-
         // Send to all recipients
         for (const to of emailTo) {
             await client.send({
@@ -160,7 +184,6 @@ ${content}
                 subject: subject,
                 content: "auto",
                 html: html,
-                internalTag: "EduMeet",
             });
         }
 

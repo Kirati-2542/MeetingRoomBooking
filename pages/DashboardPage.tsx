@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { api } from '../services/api';
 import { BookingStatus } from '../types';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, PieChart, Pie, Cell } from 'recharts';
-import { Activity, Clock, Building, TrendingUp, Users, CheckCircle, XCircle, Calendar, CalendarDays, FileText, MapPin } from 'lucide-react';
+import { Activity, Clock, Building, TrendingUp, Users, CheckCircle, XCircle, Calendar, CalendarDays, FileText, MapPin, Ban } from 'lucide-react';
 
 export const DashboardPage: React.FC = () => {
     const [stats, setStats] = useState<any>(null);
@@ -60,6 +60,7 @@ export const DashboardPage: React.FC = () => {
         { name: 'อนุมัติ', value: stats.approvedCount, color: '#10B981' },
         { name: 'รออนุมัติ', value: stats.pendingCount, color: '#F59E0B' },
         { name: 'ไม่อนุมัติ', value: stats.rejectedCount, color: '#EF4444' },
+        { name: 'ยกเลิกแล้ว', value: stats.cancelledCount, color: '#6B7280' },
     ].filter(d => d.value > 0);
 
     const getStatusBadge = (status: string) => {
@@ -70,6 +71,8 @@ export const DashboardPage: React.FC = () => {
                 return <span className="px-2 py-1 text-xs font-medium bg-amber-100 text-amber-700 rounded-full">รออนุมัติ</span>;
             case BookingStatus.REJECTED:
                 return <span className="px-2 py-1 text-xs font-medium bg-red-100 text-red-700 rounded-full">ไม่อนุมัติ</span>;
+            case BookingStatus.CANCELLED:
+                return <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-700 rounded-full">ยกเลิกแล้ว</span>;
             default:
                 return <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-700 rounded-full">{status}</span>;
         }
@@ -140,6 +143,18 @@ export const DashboardPage: React.FC = () => {
                 </div>
 
                 {/* Row 2 */}
+                <div className="glass-card p-4 hover-lift animate-fade-in-up" style={{ animationDelay: '175ms' }}>
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-gray-100 rounded-lg">
+                            <Ban className="w-5 h-5 text-gray-600" />
+                        </div>
+                        <div>
+                            <p className="text-xs text-gray-500">ยกเลิกแล้ว</p>
+                            <p className="text-2xl font-bold text-gray-600">{stats.cancelledCount}</p>
+                        </div>
+                    </div>
+                </div>
+
                 <div className="glass-card p-4 hover-lift animate-fade-in-up" style={{ animationDelay: '200ms' }}>
                     <div className="flex items-center gap-3">
                         <div className="p-2 bg-purple-100 rounded-lg">
@@ -326,11 +341,12 @@ export const DashboardPage: React.FC = () => {
                                         </td>
                                         <td className="py-3 px-4 text-gray-700">{booking.userName}</td>
                                         <td className="py-3 px-4 text-gray-500 text-sm">
-                                            {new Date(booking.startDatetime).toLocaleDateString('th-TH', {
-                                                day: 'numeric',
-                                                month: 'short',
-                                                year: 'numeric'
-                                            })}
+                                            <div>
+                                                {new Date(booking.startDatetime).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })} {new Date(booking.startDatetime).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}
+                                            </div>
+                                            <div className="text-xs mt-1">
+                                                - {new Date(booking.endDatetime).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })} {new Date(booking.endDatetime).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}
+                                            </div>
                                         </td>
                                         <td className="py-3 px-4">{getStatusBadge(booking.status)}</td>
                                     </tr>

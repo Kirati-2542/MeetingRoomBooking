@@ -168,10 +168,16 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogout, currentPage, onN
               </button>
 
               {(user.role === UserRole.APPROVER || user.role === UserRole.ADMIN) && (
-                <button onClick={() => { onNavigate('approval'); setMobileMenuOpen(false); }} className={mobileNavItemClass('approval') + ' w-full'}>
-                  <CheckSquare className="w-5 h-5" />
-                  อนุมัติการจอง
-                </button>
+                <>
+                  <button onClick={() => { onNavigate('approval'); setMobileMenuOpen(false); }} className={mobileNavItemClass('approval') + ' w-full'}>
+                    <CheckSquare className="w-5 h-5" />
+                    อนุมัติการจอง
+                  </button>
+                  <button onClick={() => { onNavigate('history'); setMobileMenuOpen(false); }} className={mobileNavItemClass('history') + ' w-full'}>
+                    <FileText className="w-5 h-5" />
+                    ประวัติทั้งหมด
+                  </button>
+                </>
               )}
 
               {user.role === UserRole.USER && (
