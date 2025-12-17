@@ -2,6 +2,7 @@
 import { api } from '../services/api';
 import { Room, Booking, User, BookingStatus } from '../types';
 import { ChevronLeft, ChevronRight, Plus, MapPin, Users, Monitor, ImageIcon, Clock, Filter, X, CalendarDays, Sparkles } from 'lucide-react';
+import { AlertModal, AlertType } from '../components/AlertModal';
 
 interface CalendarPageProps {
   user: User;
@@ -14,6 +15,19 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({ user }) => {
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Alert Modal State
+  const [alertModal, setAlertModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    type: AlertType;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'success'
+  });
 
   // Tooltip State
   const [tooltip, setTooltip] = useState<{ booking: Booking; x: number; y: number } | null>(null);
@@ -38,8 +52,8 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({ user }) => {
     loadData();
   }, [currentDate]);
 
-  const loadData = async () => {
-    setLoading(true);
+  const loadData = async (withLoading = true) => {
+    if (withLoading) setLoading(true);
     try {
       const [roomsData, bookingsData] = await Promise.all([
         api.rooms.list(),
@@ -50,7 +64,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({ user }) => {
     } catch (err) {
       console.error('Error loading data:', err);
     } finally {
-      setLoading(false);
+      if (withLoading) setLoading(false);
     }
   };
 
@@ -118,16 +132,22 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({ user }) => {
       });
 
       if (result.success) {
-        alert('จองห้องสำเร็จเรียบร้อยแล้ว');
+        setAlertModal({
+          isOpen: true,
+          title: 'จองห้องสำเร็จ',
+          message: 'ระบบได้รับข้อมูลการจองห้องของคุณเรียบร้อยแล้ว กรุณารอการอนุมัติ',
+          type: 'success'
+        });
         setIsModalOpen(false);
         setFormData({
           roomId: rooms[0]?.id || '',
           title: '',
           purpose: '',
           startTime: '09:00',
-          endTime: '10:00'
+          endTime: '10:00',
+          endDate: ''
         });
-        loadData();
+        loadData(false);
       } else {
         setErrorMsg(result.message);
       }
@@ -615,6 +635,15 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({ user }) => {
           </div>
         </div>
       )}
+
+      {/* Alert Modal */}
+      <AlertModal
+        isOpen={alertModal.isOpen}
+        onClose={() => setAlertModal(prev => ({ ...prev, isOpen: false }))}
+        title={alertModal.title}
+        message={alertModal.message}
+        type={alertModal.type}
+      />
 
       {/* Tooltip */}
       {tooltip && (
