@@ -91,9 +91,11 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({ user }) => {
     setErrorMsg('');
     // Format date to YYYY-MM-DD for input type="date"
     const dateStr = date.toLocaleDateString('en-CA'); // YYYY-MM-DD
+    // Get first ACTIVE room for default selection
+    const activeRooms = rooms.filter(r => r.status === 'ACTIVE');
     setFormData(prev => ({
       ...prev,
-      roomId: rooms[0]?.id || '',
+      roomId: activeRooms[0]?.id || '',
       endDate: dateStr
     }));
   };
@@ -139,8 +141,9 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({ user }) => {
           type: 'success'
         });
         setIsModalOpen(false);
+        const activeRooms = rooms.filter(r => r.status === 'ACTIVE');
         setFormData({
-          roomId: rooms[0]?.id || '',
+          roomId: activeRooms[0]?.id || '',
           title: '',
           purpose: '',
           startTime: '09:00',
@@ -452,11 +455,20 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({ user }) => {
                     className="input-modern"
                   >
                     <option value="" disabled>กรุณาเลือกห้อง</option>
-                    {rooms.map(r => (
+                    {rooms.filter(r => r.status === 'ACTIVE').map(r => (
                       <option key={r.id} value={r.id}>
                         {r.room_name} (ความจุ: {r.capacity})
                       </option>
                     ))}
+                    {rooms.filter(r => r.status === 'MAINTENANCE').length > 0 && (
+                      <optgroup label="ปิดปรับปรุง (ไม่สามารถจองได้)">
+                        {rooms.filter(r => r.status === 'MAINTENANCE').map(r => (
+                          <option key={r.id} value={r.id} disabled className="text-gray-400">
+                            🔧 {r.room_name} - ปิดปรับปรุง
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
                   </select>
                 </div>
 

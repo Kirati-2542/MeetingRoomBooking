@@ -129,6 +129,22 @@ export const api = {
       start_datetime: string;
       end_datetime: string;
     }): Promise<{ success: boolean; message: string }> => {
+      // Check if room is under maintenance
+      const { data: roomData, error: roomError } = await supabase
+        .from('rooms')
+        .select('status, room_name')
+        .eq('id', booking.room_id)
+        .single();
+
+      if (roomError) {
+        console.error('Error checking room status:', roomError);
+        return { success: false, message: 'เกิดข้อผิดพลาดในการตรวจสอบห้อง' };
+      }
+
+      if (roomData?.status === 'MAINTENANCE') {
+        return { success: false, message: `ห้อง "${roomData.room_name}" ปิดปรับปรุงอยู่ ไม่สามารถจองได้ในขณะนี้` };
+      }
+
       // Check for overlapping bookings
       const { data: overlaps, error: overlapError } = await supabase
         .from('bookings')

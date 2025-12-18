@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
-import { Booking, User, BookingStatus } from '../types';
-import { Calendar, Search, Filter, Download, CheckCircle, XCircle, Clock, MapPin, User as UserIcon, ArrowUpDown } from 'lucide-react';
+import { Booking, User, BookingStatus, UserRole } from '../types';
+import { Calendar, Search, Filter, Download, CheckCircle, XCircle, Clock, MapPin, User as UserIcon, ArrowUpDown, Ban } from 'lucide-react';
+import { ConfirmationModal } from '../components/ConfirmationModal';
 
 interface BookingHistoryPageProps {
     user: User;
@@ -12,11 +13,28 @@ export const BookingHistoryPage: React.FC<BookingHistoryPageProps> = ({ user }) 
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<string>('ALL');
+    const [actionLoading, setActionLoading] = useState<string | null>(null);
+    const [modalConfig, setModalConfig] = useState<{
+        isOpen: boolean;
+        title: string;
+        message: string;
+        onConfirm: () => void;
+        isDanger: boolean;
+        confirmText?: string;
+    }>({
+        isOpen: false,
+        title: '',
+        message: '',
+        onConfirm: () => { },
+        isDanger: false
+    });
 
     const [sortConfig, setSortConfig] = useState<{ key: keyof Booking | 'room_name' | 'user_name'; direction: 'ascending' | 'descending' }>({
         key: 'created_at',
         direction: 'descending'
     });
+
+    const canCancelBooking = user.role === UserRole.ADMIN || user.role === UserRole.APPROVER;
 
     useEffect(() => {
         loadBookings();
@@ -31,6 +49,33 @@ export const BookingHistoryPage: React.FC<BookingHistoryPageProps> = ({ user }) 
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleCancel = async (bookingId: string) => {
+        setActionLoading(bookingId);
+        try {
+            const result = await api.bookings.updateStatus(bookingId, BookingStatus.CANCELLED, user.id);
+            if (result.success) {
+                loadBookings();
+            } else {
+                alert(result.error || 'เกิดข้อผิดพลาดในการยกเลิก');
+            }
+        } catch (error) {
+            alert('เกิดข้อผิดพลาด');
+        } finally {
+            setActionLoading(null);
+        }
+    };
+
+    const openCancelModal = (bookingId: string, bookingTitle: string) => {
+        setModalConfig({
+            isOpen: true,
+            title: 'ยืนยันการยกเลิก',
+            message: `คุณต้องการยกเลิกการจอง "${bookingTitle}" ใช่หรือไม่? การจองที่ถูกยกเลิกจะไม่สามารถกู้คืนได้`,
+            onConfirm: () => handleCancel(bookingId),
+            isDanger: true,
+            confirmText: 'ยกเลิกการจอง'
+        });
     };
 
     const handleSort = (key: keyof Booking | 'room_name' | 'user_name') => {
@@ -209,6 +254,11 @@ export const BookingHistoryPage: React.FC<BookingHistoryPageProps> = ({ user }) 
                                         )}
                                     </div>
                                 </th>
+                                {canCancelBooking && (
+                                    <th className="px-6 py-3 font-medium text-center">
+                                        <span>ดำเนินการ</span>
+                                    </th>
+                                )}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
@@ -248,12 +298,39 @@ export const BookingHistoryPage: React.FC<BookingHistoryPageProps> = ({ user }) 
                                     <td className="px-6 py-4">
                                         {getStatusBadge(booking.status)}
                                     </td>
+                                    {canCancelBooking && (
+                                        <td className="px-6 py-4 text-center">
+                                            {(booking.status === BookingStatus.PENDING || booking.status === BookingStatus.APPROVED) ? (
+                                                <button
+                                                    onClick={() => openCancelModal(booking.id, booking.title)}
+                                                    disabled={!!actionLoading}
+                                                    className="px-3 py-1.5 bg-white border border-red-200 text-red-600 rounded-lg hover:bg-red-50 transition-colors text-xs font-medium disabled:opacity-50 inline-flex items-center gap-1"
+                                                >
+                                                    <Ban className="w-3 h-3" />
+                                                    ยกเลิก
+                                                </button>
+                                            ) : (
+                                                <span className="text-xs text-gray-400">-</span>
+                                            )}
+                                        </td>
+                                    )}
                                 </tr>
                             ))}
                         </tbody>
                     </table>
                 </div>
             </div>
+
+            <ConfirmationModal
+                isOpen={modalConfig.isOpen}
+                onClose={() => setModalConfig(prev => ({ ...prev, isOpen: false }))}
+                onConfirm={modalConfig.onConfirm}
+                title={modalConfig.title}
+                message={modalConfig.message}
+                isDanger={modalConfig.isDanger}
+                confirmText={modalConfig.confirmText}
+            />
         </div>
     );
 };
+
